@@ -5,15 +5,12 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(Image))]
 public class RotatableUIElement : MonoBehaviour, IPointerDownHandler, IDragHandler
 {
-    [SerializeField] private Transform _rotatableObject;
-    [SerializeField] private float _rotationSpeed = 1f;    
-    public Transform RotatableObject {get=>  _rotatableObject; set => _rotatableObject = value;}
+    [SerializeField] private float _rotationSpeed = 1f;
+    
+    private Transform _rotatableObject;
     private Vector2 _mouseOrigin;
 
-    public void SetRotatableObjectParent(Transform parent)
-    {
-        _rotatableObject = parent;
-    }
+    public Transform RotatableObject { get => _rotatableObject; set => _rotatableObject = value; }
 
     public void OnPointerDown(PointerEventData eventData)
     {
