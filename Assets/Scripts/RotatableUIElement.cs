@@ -12,6 +12,7 @@ public class RotatableUIElement : MonoBehaviour, IPointerDownHandler, IDragHandl
 
     public Transform RotatableObject { get => _rotatableObject; set => _rotatableObject = value; }
 
+
     public void OnPointerDown(PointerEventData eventData)
     {
         _mouseOrigin = Input.mousePosition;

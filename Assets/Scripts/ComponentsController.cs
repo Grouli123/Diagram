@@ -2,22 +2,36 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
+using System.Collections;
 
 public class ComponentsController : MonoBehaviour
 {
     [SerializeField] private RotatableUIElement _rotatableUIElement;
     [SerializeField] private ComponentsList _componentsList;
+    [SerializeField] private SystemCamera _systemCamera;
     public Action<ReducerMode> OnModeChanged;
     private Transform _selectedComponentTransform = null;
     private bool _isExploded;
     private Transform _activeComponentTransform;
     private Dictionary<Transform, TransformData> _initialTransforms = new Dictionary<Transform, TransformData>();
 
-    private void Start()
+    private void Awake()
     {
+        DOTween.SetTweensCapacity(500, 50);
         _componentsList.OnComponentSelect += ShowComponent;
+        _rotatableUIElement.RotatableObject = _componentsList.parentTransform;
+
         SaveInitialTransforms();
     }
+
+    private void Update()
+    {
+        if (_rotatableUIElement != null && _rotatableUIElement.RotatableObject != null)
+        {
+            Camera.main.transform.DOLookAt(_rotatableUIElement.RotatableObject.position, 0.5f);
+        }
+    }
+
     private void SaveInitialTransforms()
     {
         _initialTransforms.Clear();
@@ -52,32 +66,50 @@ public class ComponentsController : MonoBehaviour
     {
         List<Transform> sortedChildren = SortChildrenByHierarchyOrder();
 
+        Vector3 centerPoint = Vector3.zero;
+        for (int i = 0; i < sortedChildren.Count; i++)
+        {
+            centerPoint += sortedChildren[i].position;
+        }
+        centerPoint /= sortedChildren.Count;
+
+        Sequence hideSequence = DOTween.Sequence();
+
         for (int i = 0; i < sortedChildren.Count; i++)
         {
             Transform child = sortedChildren[i];
 
             if (child != _selectedComponentTransform)
             {
-                child.DOLocalRotate(Vector3.zero, 1f);
+                Vector3 targetConnectPosition = centerPoint;
 
-                float offsetY = _isExploded ? i * 0.5f : 0f;
-                Vector3 targetPosition = child.localPosition - new Vector3(0f, offsetY, 0f);
+                hideSequence.Append(child.DOMove(targetConnectPosition, 0.2f));
 
-                // Добавлено: анимация уменьшения скейла перед отключением объекта
-                child.DOScale(Vector3.zero, 1f).OnComplete(() => child.gameObject.SetActive(false));
-
-                child.DOLocalMove(targetPosition, 1f);
+                hideSequence.Join(child.DOScale(Vector3.one * 0.2f, 0.2f));
             }
         }
 
-        _selectedComponentTransform.DOScale(Vector3.one, 1f);
-        _selectedComponentTransform.gameObject.SetActive(true);
-        _activeComponentTransform = _selectedComponentTransform;
+        hideSequence.Append(_selectedComponentTransform.DOScale(Vector3.one, 0.2f))
+            .OnComplete(() => StartCoroutine(OnHideComplete(sortedChildren)));
+    }
 
-        if (_isExploded)
+    private IEnumerator OnHideComplete(List<Transform> sortedChildren)
+    {
+        for (int i = 0; i < sortedChildren.Count; i++)
         {
-            _rotatableUIElement.RotatableObject = _componentsList.mainTransform;
+            Transform child = sortedChildren[i];
+
+            if (child != _selectedComponentTransform)
+            {
+                child.DOScale(Vector3.zero, 0.2f);
+                child.DOLocalRotate(Vector3.zero, 0.2f);
+                float offsetY = _isExploded ? i * 0.2f : 0f;
+                Vector3 targetPosition = child.localPosition - new Vector3(0f, offsetY, 0f);
+                child.DOLocalMove(targetPosition, 0.2f);
+            }
         }
+        yield return new WaitForSeconds(0.2f);
+        _componentsList.ShowListNames();
     }
 
     private List<Transform> SortChildrenByHierarchyOrder()
@@ -101,15 +133,15 @@ public class ComponentsController : MonoBehaviour
         {
             Transform child = sortedChildren[i];
 
-            child.DOLocalRotate(Vector3.zero, 1f);
+            child.DOLocalRotate(Vector3.zero, 0.5f);
 
-            float offsetY = _isExploded ? i * 0.5f : 0f;
+            float offsetY = _isExploded ? i * 0.2f : 0f;
             Vector3 targetPosition = _initialTransforms[child].Position + new Vector3(0f, offsetY, 0f);
 
             child.gameObject.SetActive(true);
 
-            child.DOLocalMove(targetPosition, 1f);
-            child.DOScale(Vector3.one, 1f);
+            child.DOLocalMove(targetPosition, 0.2f);
+            child.DOScale(Vector3.one, 0.2f);
         }
 
         if (_isExploded)
@@ -128,21 +160,26 @@ public class ComponentsController : MonoBehaviour
 
         if (_isExploded)
         {
-            OnModeChanged?.Invoke(ReducerMode.Exploded);
-            Camera.main.transform.DOLookAt(_componentsList.mainTransform.position, 1f).OnComplete(() =>
+            OnModeChanged?.Invoke(ReducerMode.Recovery);
+            Camera.main.transform.DOLookAt(_componentsList.parentTransform.position, 0.5f).OnComplete(() =>
             {
-                ShowAll();
-
-                Camera.main.DOFieldOfView(80f, 1f);
+                CollapseDetail();
+                _componentsList.ShowListNames();
+                _systemCamera.Zoom(_systemCamera.ZoomToDefault);
+                Camera.main.transform.DOMove(new Vector3(Camera.main.transform.position.x, Camera.main.transform.position.y, -6f), 1f);
+                _componentsList.mainTransform.DOLocalRotate(Vector3.zero, 1f);
+                _componentsList.parentTransform.DOLocalRotate(Vector3.zero, 1f);
             });
         }
         else
         {
-            OnModeChanged?.Invoke(ReducerMode.Recovery);
-            Camera.main.transform.DOLookAt(_componentsList.parentTransform.position, 1f).OnComplete(() =>
+            OnModeChanged?.Invoke(ReducerMode.Exploded);
+            Camera.main.transform.DOLookAt(_componentsList.mainTransform.position, 0.5f).OnComplete(() =>
             {
-                CollapseDetail();
-                Camera.main.DOFieldOfView(60f, 1f);
+                ShowAll();
+                Camera.main.transform.DOMove(new Vector3(Camera.main.transform.position.x, Camera.main.transform.position.y, -6f), 1f);
+                _componentsList.mainTransform.DOLocalRotate(Vector3.zero, 1f);
+                _componentsList.parentTransform.DOLocalRotate(Vector3.zero, 1f);
             });
         }
     }
@@ -155,32 +192,26 @@ public class ComponentsController : MonoBehaviour
 
         Vector3 newCameraPosition = centerPoint + new Vector3(0f, 0f, -distance);
 
-        Camera.main.transform.DOMove(newCameraPosition, 1f);
-
         List<Transform> sortedChildren = SortChildrenByHierarchyOrder();
 
         for (int i = 0; i < sortedChildren.Count; i++)
         {
             Transform child = sortedChildren[i];
 
-            float offsetY = _isExploded ? i * 0.5f : 0f;
+            float offsetY = _isExploded ? i * 0.2f : 0f;
             Vector3 targetPosition = _initialTransforms[child].Position + new Vector3(0f, offsetY, 0f);
 
-            child.DOLocalMove(targetPosition, 1f);
+            child.DOLocalMove(targetPosition, 0.1f);
             child.DOScale(1, 1f).OnComplete(() => child.gameObject.SetActive(true));
         }
 
         if (_isExploded)
         {
             _rotatableUIElement.RotatableObject = _componentsList.mainTransform;
-
-            Camera.main.transform.DOMove(_componentsList.mainTransform.position + new Vector3(0f, 0f, -distance), 1f);
         }
         else
         {
             _rotatableUIElement.RotatableObject = _componentsList.parentTransform;
-
-            Camera.main.transform.DOMove(_componentsList.parentTransform.position + new Vector3(0f, 0f, -distance), 1f);
         }
     }
 

@@ -6,7 +6,9 @@ public class SystemCamera : MonoBehaviour
 {
     [SerializeField] private float _zoomDuration;
     [SerializeField] private float _zoomAmount;
-    [SerializeField] private float _zoomDefault;
+    [SerializeField] private float zoomDefault;
+    public float ZoomToDefault { get => zoomDefault; set => zoomDefault = value; }
+
     [SerializeField] private ComponentsList _componentsList;
     private Transform _currentComponent;
     private bool _isZoomed;
@@ -23,7 +25,7 @@ public class SystemCamera : MonoBehaviour
         }
         else if (_isZoomed && component == _currentComponent)
         {            
-            Zoom(_zoomDefault);
+            Zoom(zoomDefault);
             _isZoomed = false;
         }
 
@@ -40,3 +42,4 @@ public class SystemCamera : MonoBehaviour
         _componentsList.OnComponentSelect -= HandleComponentSelection;
     }    
 }
+

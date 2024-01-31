@@ -18,18 +18,24 @@ public class ComponentsList : MonoBehaviour
 
     private void Awake()
     {
-        if (_componentsParent != null)
+        _reducerController.OnModeChanged += OnReducerModeChanged;
+    }
+
+    public void ShowListNames()
+    {
+        if (_componentsList.Count == 0)
         {
-            for (int i = 0; i < _componentsParent.childCount; i++)
+            if (_componentsParent != null)
             {
-                ComponentElement newElement = Instantiate(_componentElementPrefab, transform);
-                newElement.SetComponent(_componentsParent.GetChild(i));
-                newElement.OnComponentSelect += OnComponentSelectHandling;
-                _componentsList.Add(newElement);
+                for (int i = 0; i < _componentsParent.childCount; i++)
+                {
+                    ComponentElement newElement = Instantiate(_componentElementPrefab, transform);
+                    newElement.SetComponent(_componentsParent.GetChild(i));
+                    newElement.OnComponentSelect += OnComponentSelectHandling;
+                    _componentsList.Add(newElement);
+                }
             }
         }
-
-        _reducerController.OnModeChanged += OnReducerModeChanged;
     }
 
     private void OnComponentSelectHandling(Transform component)
